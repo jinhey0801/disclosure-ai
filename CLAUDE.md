@@ -10,6 +10,9 @@
 - 스키마 변경은 `src/main/resources/db/migration/V{n}__설명.sql` (Flyway). JPA `ddl-auto`는 `validate`.
 - DART 정답 수집: `POST /api/admin/collect` (전체 18개사) 또는 `POST /api/admin/collect/{corpCode}`. `DART_API_KEY`는 `.env`에 둔다.
 - 평가셋 기업은 Flyway `V4__seed_evaluation_companies.sql`에서 관리
+- 공시 원문(LLM 입력): `POST /api/admin/documents` → `report_section`. 재무상태표·손익계산서만, XBRL 속성(ACODE 등 사실상 정답)은 제거. 위치는 TABLE-GROUP ACLASS `{XBRL}BS_C|IS_S1…`로 찾는다
+- 입력 품질 점검: `GET /api/documents/coverage` (정답 숫자가 본문에 있는 비율, 현재 99.8%). 서암기계공업 2025 Q3 별도 손익 4건은 DART API 값과 공시 본문이 달라 평가에서 제외할 것
+- 관리 API(`/api/admin/**`)는 `X-Admin-Token` 헤더 필요 (`ADMIN_TOKEN`). 1분 넘는 작업은 `SingleRunJob`으로 백그라운드 실행 (리버스 프록시 60초 제한)
 
 ## NAS (Synology DS220+)
 - 접속: `ssh nas` (키 인증, `~/.ssh/config` 별칭). docker는 `/usr/local/bin/docker` 로 호출 (비대화형 셸 PATH에 없음)

@@ -1,6 +1,8 @@
 package com.herenas.disclosureai.collect;
 
+import com.herenas.disclosureai.support.SingleRunJob;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
@@ -23,7 +25,7 @@ public class CollectController {
 
 	/** 전체 기업 수집을 백그라운드로 시작한다. 진행 상태는 GET 으로 확인. */
 	@PostMapping
-	public ResponseEntity<CollectJob.Status> collectAll(
+	public ResponseEntity<SingleRunJob.Status<List<CollectService.Summary>>> collectAll(
 			@RequestParam(defaultValue = "2025-01-01") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from) {
 		try {
 			return ResponseEntity.status(HttpStatus.ACCEPTED).body(collectJob.start(from));
@@ -33,7 +35,7 @@ public class CollectController {
 	}
 
 	@GetMapping
-	public CollectJob.Status status() {
+	public SingleRunJob.Status<List<CollectService.Summary>> status() {
 		return collectJob.status();
 	}
 

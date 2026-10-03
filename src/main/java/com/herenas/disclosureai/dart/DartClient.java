@@ -82,10 +82,38 @@ public class DartClient {
 		return response.list();
 	}
 
-	private <T> T get(String path, Function<UriBuilder, UriBuilder> params, Class<T> type) {
+	/** 공시 원문 zip (본문 XML + 첨부 감사보고서 XML 등) */
+	public byte[] document(String rceptNo) {
+		requireApiKey();
+		byte[] body = restClient.get()
+				.uri(uri -> uri.path("/document.xml")
+						.queryParam("crtfc_key", properties.apiKey())
+						.queryParam("rcept_no", rceptNo)
+						.build())
+				.retrieve()
+				.body(byte[].class);
+		// 정상이면 zip(PK 로 시작), 오류면 <result><status>…</status><message>…</message></result> XML
+		if (body != null && body.length > 2 && body[0] == 'P' && body[1] == 'K') {
+			return body;
+		}
+		String text = body == null ? "" : new String(body, java.nio.charset.StandardCharsets.UTF_8);
+		throw new DartApiException(between(text, "<status>", "</status>"), between(text, "<message>", "</message>"));
+	}
+
+	private static String between(String text, String open, String close) {
+		int start = text.indexOf(open);
+		int end = text.indexOf(close);
+		return start < 0 || end < start ? "?" : text.substring(start + open.length(), end);
+	}
+
+	private void requireApiKey() {
 		if (!StringUtils.hasText(properties.apiKey())) {
 			throw new IllegalStateException("DART_API_KEY 가 설정되지 않았습니다.");
 		}
+	}
+
+	private <T> T get(String path, Function<UriBuilder, UriBuilder> params, Class<T> type) {
+		requireApiKey();
 		// DART 는 오류 응답도 200 + JSON(status 필드)으로 주고 Content-Type 이 일정하지 않아 문자열로 받아 직접 파싱한다.
 		String body = restClient.get()
 				.uri(uri -> params.apply(uri.path(path).queryParam("crtfc_key", properties.apiKey())).build())

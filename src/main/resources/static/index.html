@@ -69,6 +69,13 @@
   .legend { margin-top: 10px; color: var(--muted); font-size: 12px; }
   .legend span.syn { background: var(--warn-weak); padding: 0 4px; }
   .empty { color: var(--muted); padding: 40px; text-align: center; }
+  thead th button.src { margin-top: 4px; padding: 1px 8px; font-size: 11px; }
+  thead th.picked { background: var(--accent-weak); }
+  .source { margin-top: 20px; }
+  .source h3 { font-size: 15px; margin: 0 0 4px; }
+  .source .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; }
+  .source pre { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px;
+    overflow-x: auto; font: 12px/1.5 var(--mono); margin: 0 0 12px; }
   @media (max-width: 720px) {
     .layout { grid-template-columns: 1fr; }
     aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }
@@ -95,7 +102,7 @@
 const METRIC_ORDER = ['TOTAL_ASSETS', 'TOTAL_LIABILITIES', 'TOTAL_EQUITY', 'CASH_AND_EQUIVALENTS', 'SHARE_CAPITAL',
   'REVENUE', 'OPERATING_INCOME', 'NET_INCOME'];
 const TYPE_LABEL = { Q1: '1분기', HALF: '반기', Q3: '3분기', ANNUAL: '사업' };
-const state = { companies: [], selected: null, detail: null, fsDiv: 'CFS', isScope: 'CUMULATIVE' };
+const state = { companies: [], selected: null, detail: null, fsDiv: 'CFS', isScope: 'CUMULATIVE', sourceReport: null, sections: null };
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -130,6 +137,8 @@ function renderCompanies() {
 
 async function selectCompany(code) {
   state.selected = code;
+  state.sourceReport = null;
+  state.sections = null;
   renderCompanies();
   try {
     state.detail = await getJson(`/api/companies/${code}`);
@@ -157,9 +166,10 @@ function renderDetail() {
   const impaired = eq && cap && Number(eq.value) < Number(cap.value)
     ? `<span class="badge">${Number(eq.value) < 0 ? '완전자본잠식' : '부분자본잠식'} (최근 보고서 기준)</span>` : '';
 
-  const head = d.reports.map(r => `<th><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${r.rceptNo}"
+  const head = d.reports.map(r => `<th class="${r.id === state.sourceReport ? 'picked' : ''}"><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${r.rceptNo}"
       target="_blank" rel="noopener" title="${esc(r.title)} — DART 원문 열기">${r.fiscalYear} ${TYPE_LABEL[r.reportType]}</a>
-      <span class="sub">${r.periodEnd}</span></th>`).join('');
+      <span class="sub">${r.periodEnd}</span>
+      <button class="src" data-report="${r.id}" title="LLM 이 읽게 될 본문 보기">본문</button></th>`).join('');
 
   const rows = metrics.map(m => `<tr><th>${esc(m.standardName)}${m.evaluated ? '' : ' <span class="aux">보조</span>'}</th>${
     d.reports.map(r => {
@@ -200,7 +210,37 @@ function renderDetail() {
     ${d.reports.length ? `<table><thead><tr><th>항목</th>${head}</tr></thead><tbody>${rows}${check}</tbody></table>`
       : '<div class="empty">수집된 보고서가 없습니다.</div>'}
     <div class="legend"><span class="syn">노란 칸 *</span> DART 표준계정코드가 맞지 않아 계정명 동의어로 찾은 값 (예: 알체라 매출액 = 영업수익) ·
-      사업보고서의 손익은 항상 12개월 누적</div>`;
+      사업보고서의 손익은 항상 12개월 누적</div>
+    ${renderSource()}`;
+}
+
+function renderSource() {
+  if (!state.sourceReport) return '';
+  const r = state.detail.reports.find(x => x.id === state.sourceReport);
+  if (!state.sections) return `<div class="source"><div class="meta">불러오는 중…</div></div>`;
+  const list = state.sections.filter(x => x.fsDiv === state.fsDiv);
+  const chars = list.reduce((n, x) => n + x.charCount, 0);
+  return `<div class="source">
+    <h3>LLM 입력 본문 · ${r.fiscalYear} ${TYPE_LABEL[r.reportType]} · ${state.fsDiv === 'CFS' ? '연결' : '별도'}</h3>
+    <div class="meta">공시 원문에서 재무상태표·손익계산서만 잘라 표 텍스트로 바꾼 것 (XBRL 계정코드 제거) · ${chars.toLocaleString()}자</div>
+    ${list.length ? list.map(x => `<pre>${esc(x.content)}</pre>`).join('')
+      : '<div class="meta">이 보고서에는 해당 재무제표 본문이 없습니다. 아직 원문을 수집하지 않았을 수 있습니다.</div>'}
+  </div>`;
+}
+
+async function showSource(reportId) {
+  state.sourceReport = reportId;
+  state.sections = null;
+  renderDetail();
+  try {
+    state.sections = await getJson(`/api/reports/${reportId}/sections`);
+  } catch (err) {
+    state.sections = [];
+  }
+  if (state.sourceReport === reportId) {
+    renderDetail();
+    document.querySelector('.source')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 $('companies').addEventListener('click', e => {
@@ -209,6 +249,8 @@ $('companies').addEventListener('click', e => {
 });
 $('search').addEventListener('input', renderCompanies);
 $('main').addEventListener('click', e => {
+  const src = e.target.closest('button.src');
+  if (src) { showSource(Number(src.dataset.report)); return; }
   const b = e.target.closest('.seg button');
   if (!b || b.disabled) return;
   if (b.parentElement.id === 'fs') state.fsDiv = b.dataset.v;
@@ -247,7 +289,7 @@ $('collect').addEventListener('click', async () => {
     } while (job.state === 'RUNNING');
 
     if (job.state === 'FAILED') throw new Error(job.error);
-    const warnings = job.summaries.flatMap(s => s.warnings.map(w => `${s.corpName}: ${w}`));
+    const warnings = job.result.flatMap(s => s.warnings.map(w => `${s.corpName}: ${w}`));
     alert(`수집 완료. 경고 ${warnings.length}건${warnings.length ? '\n\n' + warnings.join('\n') : ''}`);
     await loadCompanies();
     if (state.selected) await selectCompany(state.selected);
