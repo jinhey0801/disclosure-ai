@@ -13,4 +13,6 @@
 - 접속: `ssh nas` (키 인증, `~/.ssh/config` 별칭). docker는 `/usr/local/bin/docker` 로 호출 (비대화형 셸 PATH에 없음)
 - 배포 디렉터리: `/volume1/docker/disclosure-ai/` (compose 원본은 `deploy/nas/docker-compose.yml`, `.env`는 NAS에만 존재)
 - MySQL 8.4: 3306 포트. 3307은 시놀로지 MariaDB가 사용 중
-- watchtower가 돌고 있으므로 DB 컨테이너는 `com.centurylinklabs.watchtower.enable=false` 라벨로 제외
+- 배포: main push → GitHub Actions(테스트 → ghcr.io/jinhey0801/disclosure-ai:latest) → NAS `disclosure-ai-watchtower`가 1분 주기로 app만 교체. 앱 주소 http://192.168.0.9:8080
+- compose 변경은 자동 배포되지 않음: 수정 후 NAS에 복사하고 `docker compose up -d` 수동 실행
+- 기존 watchtower가 돌고 있으므로 DB 컨테이너는 `com.centurylinklabs.watchtower.enable=false` 라벨로 제외
