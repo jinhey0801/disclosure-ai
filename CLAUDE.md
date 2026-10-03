@@ -8,6 +8,8 @@
 - 전체 기동: `docker compose up --build` → http://localhost:8080/actuator/health
 - 로컬 개발: IDE에서 `DisclosureAiApplication` 실행 (또는 `./gradlew bootRun`). DB는 NAS MySQL. 접속 정보는 프로젝트 루트 `.env`(git 제외)에 있고 `application.yml`이 자동으로 읽는다.
 - 스키마 변경은 `src/main/resources/db/migration/V{n}__설명.sql` (Flyway). JPA `ddl-auto`는 `validate`.
+- DART 정답 수집: `POST /api/admin/collect` (전체 18개사) 또는 `POST /api/admin/collect/{corpCode}`. `DART_API_KEY`는 `.env`에 둔다.
+- 평가셋 기업은 Flyway `V4__seed_evaluation_companies.sql`에서 관리
 
 ## NAS (Synology DS220+)
 - 접속: `ssh nas` (키 인증, `~/.ssh/config` 별칭). docker는 `/usr/local/bin/docker` 로 호출 (비대화형 셸 PATH에 없음)

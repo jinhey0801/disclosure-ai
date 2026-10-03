@@ -41,6 +41,7 @@ services:
       DB_URL: jdbc:mysql://mysql:3306/disclosure_ai?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
+      DART_API_KEY: ${DART_API_KEY}
       # NAS 가용 메모리가 작아 힙을 고정한다
       JAVA_OPTS: -Xms256m -Xmx512m -Duser.timezone=Asia/Seoul
     mem_limit: 768m

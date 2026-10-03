@@ -65,4 +65,11 @@ public class DisclosureReport {
 		this.title = title;
 		this.filedOn = filedOn;
 	}
+
+	/** 정정공시가 나오면 같은 기간 보고서를 최신 접수번호로 갱신한다. */
+	public void amend(String rceptNo, String title, LocalDate filedOn) {
+		this.rceptNo = rceptNo;
+		this.title = title;
+		this.filedOn = filedOn;
+	}
 }
