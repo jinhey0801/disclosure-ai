@@ -1,5 +1,7 @@
 # NAS(Synology) 배포용. /volume1/docker/disclosure-ai/ 에 .env 와 함께 둔다.
-# 지금은 MySQL만. 앱 컨테이너는 배포 단계에서 추가한다.
+#
+# 배포 흐름: main push → GitHub Actions 가 ghcr.io 에 :latest 이미지 push
+#           → watchtower-disclosure 가 1분마다 확인해서 app 컨테이너만 교체
 services:
   mysql:
     image: mysql:8.4
@@ -27,3 +29,33 @@ services:
       timeout: 5s
       retries: 10
       start_period: 300s   # NAS 디스크에서 최초 초기화가 4~5분 걸린다
+
+  app:
+    image: ghcr.io/jinhey0801/disclosure-ai:latest
+    container_name: disclosure-ai-app
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://mysql:3306/disclosure_ai?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      # NAS 가용 메모리가 작아 힙을 고정한다
+      JAVA_OPTS: -Xms256m -Xmx512m -Duser.timezone=Asia/Seoul
+    mem_limit: 768m
+    ports:
+      - "8080:8080"
+    labels:
+      com.centurylinklabs.watchtower.scope: disclosure-ai
+
+  # 이 프로젝트 전용 watchtower. 기존 watchtower(24시간 주기)와 별개로 app 만 1분마다 확인한다.
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: disclosure-ai-watchtower
+    restart: unless-stopped
+    command: --scope disclosure-ai --interval 60 --cleanup
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    labels:
+      com.centurylinklabs.watchtower.scope: disclosure-ai
