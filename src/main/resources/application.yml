@@ -1,6 +1,9 @@
 spring:
   application:
     name: disclosure-ai
+  config:
+    # 로컬 개발 시 프로젝트 루트의 .env(git 제외)를 읽는다. 없으면 무시.
+    import: optional:file:.env[.properties]
   datasource:
     # 로컬(IDE) 실행 기본값. Docker에서는 환경변수로 덮어쓴다.
     url: ${DB_URL:jdbc:mysql://localhost:3306/disclosure_ai?serverTimezone=Asia/Seoul&characterEncoding=UTF-8}

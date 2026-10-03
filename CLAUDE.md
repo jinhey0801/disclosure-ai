@@ -6,5 +6,11 @@
 
 ## 실행
 - 전체 기동: `docker compose up --build` → http://localhost:8080/actuator/health
-- 로컬 개발: `docker compose up -d mysql` 후 IDE에서 `DisclosureAiApplication` 실행
+- 로컬 개발: IDE에서 `DisclosureAiApplication` 실행 (또는 `./gradlew bootRun`). DB는 NAS MySQL. 접속 정보는 프로젝트 루트 `.env`(git 제외)에 있고 `application.yml`이 자동으로 읽는다.
 - 스키마 변경은 `src/main/resources/db/migration/V{n}__설명.sql` (Flyway). JPA `ddl-auto`는 `validate`.
+
+## NAS (Synology DS220+)
+- 접속: `ssh nas` (키 인증, `~/.ssh/config` 별칭). docker는 `/usr/local/bin/docker` 로 호출 (비대화형 셸 PATH에 없음)
+- 배포 디렉터리: `/volume1/docker/disclosure-ai/` (compose 원본은 `deploy/nas/docker-compose.yml`, `.env`는 NAS에만 존재)
+- MySQL 8.4: 3306 포트. 3307은 시놀로지 MariaDB가 사용 중
+- watchtower가 돌고 있으므로 DB 컨테이너는 `com.centurylinklabs.watchtower.enable=false` 라벨로 제외

@@ -1,0 +1,29 @@
+# NAS(Synology) 배포용. /volume1/docker/disclosure-ai/ 에 .env 와 함께 둔다.
+# 지금은 MySQL만. 앱 컨테이너는 배포 단계에서 추가한다.
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: disclosure-ai-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: disclosure_ai
+      MYSQL_USER: ${DB_USERNAME}
+      MYSQL_PASSWORD: ${DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      TZ: Asia/Seoul
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+    labels:
+      # watchtower 가 DB 이미지를 임의로 올리지 않도록 제외
+      com.centurylinklabs.watchtower.enable: "false"
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 300s   # NAS 디스크에서 최초 초기화가 4~5분 걸린다
