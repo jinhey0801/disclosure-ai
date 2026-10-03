@@ -12,6 +12,9 @@ public interface ReportSectionRepository extends JpaRepository<ReportSection, Lo
 
 	boolean existsByReport(DisclosureReport report);
 
+	@Query("select distinct s.report.id from ReportSection s order by s.report.id")
+	List<Long> findReportIdsWithSections();
+
 	@Modifying
 	@Query("delete from ReportSection s where s.report = :report")
 	void deleteByReport(DisclosureReport report);

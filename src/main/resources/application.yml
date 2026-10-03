@@ -20,6 +20,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  batch:
+    job:
+      enabled: false              # 시작 시 잡을 자동 실행하지 않는다 (API 로만 실행)
+    jdbc:
+      initialize-schema: never    # 메타데이터 테이블은 Flyway V6 로 관리
 
 dart:
   api-key: ${DART_API_KEY:}

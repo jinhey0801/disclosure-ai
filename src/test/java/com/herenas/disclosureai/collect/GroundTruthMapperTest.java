@@ -4,9 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.tuple;
 
 import com.herenas.disclosureai.collect.GroundTruthMapper.MappedValue;
-import com.herenas.disclosureai.collect.GroundTruthMapper.MetricSpec;
 import com.herenas.disclosureai.dart.DartResponses.Account;
 import com.herenas.disclosureai.domain.common.PeriodScope;
+import com.herenas.disclosureai.domain.metric.MetricSpec;
 import com.herenas.disclosureai.domain.metric.StatementType;
 import com.herenas.disclosureai.domain.report.ReportType;
 import java.math.BigDecimal;
@@ -19,11 +19,11 @@ class GroundTruthMapperTest {
 	private final GroundTruthMapper mapper = new GroundTruthMapper();
 
 	private static final MetricSpec TOTAL_EQUITY =
-			new MetricSpec("TOTAL_EQUITY", StatementType.BS, "ifrs-full_Equity", Set.of("자본총계"));
+			new MetricSpec("TOTAL_EQUITY", "자본총계", StatementType.BS, "ifrs-full_Equity", Set.of("자본총계"));
 	private static final MetricSpec REVENUE =
-			new MetricSpec("REVENUE", StatementType.IS, "ifrs-full_Revenue", Set.of("매출액", "영업수익"));
+			new MetricSpec("REVENUE", "매출액", StatementType.IS, "ifrs-full_Revenue", Set.of("매출액", "영업수익"));
 	private static final MetricSpec NET_INCOME =
-			new MetricSpec("NET_INCOME", StatementType.IS, "ifrs-full_ProfitLoss", Set.of("당기순이익", "분기순이익(손실)"));
+			new MetricSpec("NET_INCOME", "당기순이익", StatementType.IS, "ifrs-full_ProfitLoss", Set.of("당기순이익", "분기순이익(손실)"));
 
 	private static Account account(String sjDiv, String id, String name, String amount, String addAmount, String ord) {
 		return new Account("20260821000656", sjDiv, id, name, amount, addAmount, ord, "KRW");

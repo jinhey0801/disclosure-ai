@@ -72,7 +72,7 @@ public class CoverageService {
 	}
 
 	/** 원 단위 절댓값을 천 단위 콤마로 찾는다. 음수 표기((1,234), -1,234, △1,234)와 무관하게 하려고 절댓값만 본다. */
-	static boolean containsNumber(String text, BigDecimal value) {
+	public static boolean containsNumber(String text, BigDecimal value) {
 		String formatted = new DecimalFormat("#,##0").format(value.abs());
 		return Pattern.compile("(?<![\\d,])" + Pattern.quote(formatted) + "(?![\\d,])").matcher(text).find();
 	}

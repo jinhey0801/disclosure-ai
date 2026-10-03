@@ -2,8 +2,7 @@ package com.herenas.disclosureai.collect;
 
 import com.herenas.disclosureai.dart.DartResponses.Account;
 import com.herenas.disclosureai.domain.common.PeriodScope;
-import com.herenas.disclosureai.domain.metric.MetricDefinition;
-import com.herenas.disclosureai.domain.metric.MetricSynonym;
+import com.herenas.disclosureai.domain.metric.MetricSpec;
 import com.herenas.disclosureai.domain.metric.StatementType;
 import com.herenas.disclosureai.domain.report.ReportType;
 import java.math.BigDecimal;
@@ -29,15 +28,6 @@ public class GroundTruthMapper {
 	private static final List<String> BS = List.of("BS");
 	/** 손익계산서가 따로 있으면 IS, 하나로 합친 회사는 CIS 에 있다 */
 	private static final List<String> IS = List.of("IS", "CIS");
-
-	/** 매핑에 필요한 항목 정보만 뽑은 값. 엔티티에 의존하지 않아 단위 테스트가 쉽다. */
-	public record MetricSpec(String code, StatementType statementType, String dartAccountId, Set<String> synonyms) {
-
-		public static MetricSpec from(MetricDefinition metric) {
-			return new MetricSpec(metric.getCode(), metric.getStatementType(), metric.getDartAccountId(),
-					metric.getSynonyms().stream().map(MetricSynonym::getSynonym).collect(Collectors.toSet()));
-		}
-	}
 
 	public record MappedValue(String metricCode, PeriodScope periodScope, BigDecimal value, String accountId,
 			String accountName) {

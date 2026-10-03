@@ -1,7 +1,6 @@
 package com.herenas.disclosureai.collect;
 
 import com.herenas.disclosureai.collect.GroundTruthMapper.MappedValue;
-import com.herenas.disclosureai.collect.GroundTruthMapper.MetricSpec;
 import com.herenas.disclosureai.dart.DartClient;
 import com.herenas.disclosureai.dart.DartResponses.Account;
 import com.herenas.disclosureai.domain.common.FsDiv;
@@ -9,6 +8,7 @@ import com.herenas.disclosureai.domain.groundtruth.GroundTruth;
 import com.herenas.disclosureai.domain.groundtruth.GroundTruthRepository;
 import com.herenas.disclosureai.domain.metric.MetricDefinition;
 import com.herenas.disclosureai.domain.metric.MetricDefinitionRepository;
+import com.herenas.disclosureai.domain.metric.MetricSpec;
 import com.herenas.disclosureai.domain.metric.StatementType;
 import com.herenas.disclosureai.domain.report.DisclosureReport;
 import com.herenas.disclosureai.domain.report.DisclosureReportRepository;

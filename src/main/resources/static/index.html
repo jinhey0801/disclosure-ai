@@ -23,6 +23,8 @@
     border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
   header h1 { font-size: 16px; margin: 0; }
   header .stats { color: var(--muted); font-size: 13px; }
+  nav a { color: var(--muted); text-decoration: none; margin-right: 12px; }
+  nav a.on { color: var(--text); font-weight: 600; }
   header .spacer { flex: 1; }
   button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--text);
     border-radius: 6px; padding: 6px 12px; }
@@ -86,7 +88,8 @@
 </head>
 <body>
 <header>
-  <h1>공시 정답 데이터</h1>
+  <h1>공시 AI 구조화</h1>
+  <nav><a href="/" class="on">정답 데이터</a><a href="/evaluation.html">추출 평가</a></nav>
   <span class="stats" id="stats"></span>
   <span class="spacer"></span>
   <button id="collect" title="DART에서 보고서 목록과 정답을 다시 가져옵니다 (1~2분)">DART에서 다시 수집</button>

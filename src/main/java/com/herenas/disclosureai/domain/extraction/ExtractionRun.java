@@ -34,6 +34,9 @@ public class ExtractionRun {
 	@Column(nullable = false, length = 20)
 	private Status status;
 
+	/** Spring Batch 잡 실행 ID (진행 건수 조회용) */
+	private Long jobExecutionId;
+
 	@Column(nullable = false)
 	private LocalDateTime startedAt;
 
@@ -50,8 +53,15 @@ public class ExtractionRun {
 		this.startedAt = LocalDateTime.now();
 	}
 
-	public void finish(Status status) {
+	public void attachJob(Long jobExecutionId) {
+		this.jobExecutionId = jobExecutionId;
+	}
+
+	public void finish(Status status, String note) {
 		this.status = status;
 		this.finishedAt = LocalDateTime.now();
+		if (note != null) {
+			this.note = note.length() > 500 ? note.substring(0, 497) + "..." : note;
+		}
 	}
 }

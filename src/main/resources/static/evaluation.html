@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>추출 평가</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6eb; --text: #1b1f24; --muted: #6b7380;
+    --accent: #2f5bea; --accent-weak: #e8eefd; --neg: #c2362b; --ok: #1f8a4c; --warn: #b26a00; --warn-weak: #fff4e0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --panel: #191d22; --line: #2a3038; --text: #e6e9ed; --muted: #8b94a1;
+      --accent: #7b9cff; --accent-weak: #1f2a44; --neg: #ff7a6e; --ok: #4cc283; --warn: #f0b056; --warn-weak: #3a2c14;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; }
+  nav a { color: var(--muted); text-decoration: none; margin-right: 12px; }
+  nav a.on { color: var(--text); font-weight: 600; }
+  header .spacer { flex: 1; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 6px; padding: 6px 12px; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+  h2 { font-size: 16px; margin: 28px 0 10px; }
+  h2:first-child { margin-top: 0; }
+  .hint { color: var(--muted); font-size: 12px; }
+  table { border-collapse: separate; border-spacing: 0; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; width: 100%; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; font-size: 13px; }
+  thead th { background: var(--bg); font-weight: 600; }
+  td.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.wrap { white-space: normal; }
+  tr.run { cursor: pointer; }
+  tr.run:hover td { background: var(--bg); }
+  tr.run.on td { background: var(--accent-weak); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .card .label { color: var(--muted); font-size: 12px; }
+  .card .value { font-size: 24px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .bar { display: inline-block; height: 8px; background: var(--ok); border-radius: 4px; vertical-align: middle; }
+  .bad { color: var(--neg); } .ok { color: var(--ok); } .warn { color: var(--warn); }
+  .scroll { overflow-x: auto; }
+  pre.evidence { margin: 0; font: 12px/1.4 var(--mono); white-space: pre-wrap; color: var(--muted); max-width: 520px; }
+  .empty { color: var(--muted); padding: 30px; text-align: center; }
+  @media (max-width: 720px) { main { padding: 16px; } header { padding: 12px 16px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>공시 AI 구조화</h1>
+  <nav><a href="/">정답 데이터</a><a href="/evaluation.html" class="on">추출 평가</a></nav>
+  <span class="spacer"></span>
+  <button id="run" title="규칙 기반 추출기로 125개 보고서를 다시 추출하고 평가합니다 (약 40초)">규칙 기반 추출 실행</button>
+</header>
+<main>
+  <h2>추출 실행</h2>
+  <div class="hint" style="margin-bottom:8px">행을 누르면 아래에 평가가 나옵니다. 정답은 DART 재무제표 API, 비교 키는 (보고서, 항목, 연결/별도, 기간 구분).</div>
+  <div class="scroll"><table id="runs"><tbody><tr><td class="empty">불러오는 중…</td></tr></tbody></table></div>
+  <div id="detail"></div>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const won = (v) => v == null ? '—' : Number(v).toLocaleString('ko-KR');
+const TYPE = { Q1: '1분기', HALF: '반기', Q3: '3분기', ANNUAL: '사업' };
+const SCOPE = { INSTANT: '시점', QUARTER: '3개월', CUMULATIVE: '누적' };
+const FS = { CFS: '연결', OFS: '별도' };
+const ERR = { SIGN: '부호 반대', UNIT_SCALE: '단위(천·백만 배)', PERIOD_SCOPE_SWAP: '3개월↔누적 혼동',
+  FS_DIV_SWAP: '연결↔별도 혼동', VALUE: '기타 값 오류' };
+let selected = null;
+
+async function getJson(url, options) {
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    throw new Error(res.status === 502 || res.status === 503 || res.status === 504
+      ? '서버가 재시작 중입니다. 30초쯤 뒤 다시 시도해 주세요.' : `요청 실패 (HTTP ${res.status})`);
+  }
+  return res.json();
+}
+
+function duration(run) {
+  if (!run.finishedAt) return '';
+  const s = Math.round((new Date(run.finishedAt) - new Date(run.startedAt)) / 1000);
+  return `${s}초`;
+}
+
+async function loadRuns() {
+  const runs = await getJson('/api/runs');
+  if (!runs.length) {
+    $('runs').innerHTML = '<tbody><tr><td class="empty">아직 실행이 없습니다. 오른쪽 위 버튼으로 시작하세요.</td></tr></tbody>';
+    return runs;
+  }
+  const accuracies = await Promise.all(runs.map(r => r.status === 'COMPLETED'
+    ? getJson(`/api/runs/${r.id}/evaluation`).then(e => e.overall).catch(() => null) : null));
+  $('runs').innerHTML = `<thead><tr><th>#</th><th>추출기</th><th>버전</th><th>상태</th><th>시작</th><th>소요</th>
+      <th>보고서(읽음/처리/건너뜀)</th><th>정확도</th><th>메모</th></tr></thead><tbody>${runs.map((r, i) => {
+    const step = r.steps.find(s => s.name === 'extractStep');
+    const acc = accuracies[i];
+    return `<tr class="run ${r.id === selected ? 'on' : ''}" data-id="${r.id}">
+      <td>${r.id}</td><td>${esc(r.extractor)}</td><td>${esc(r.version)}</td>
+      <td class="${r.status === 'FAILED' ? 'bad' : r.status === 'RUNNING' ? 'warn' : ''}">${r.status}</td>
+      <td>${esc((r.startedAt || '').replace('T', ' ').slice(0, 19))}</td><td>${duration(r)}</td>
+      <td class="num">${step ? `${step.read} / ${step.written} / ${step.skipped}` : '—'}</td>
+      <td class="num">${acc ? `<b>${acc.accuracy}%</b> <span class="hint">(${acc.correct}/${acc.total})</span>` : '—'}</td>
+      <td class="wrap">${esc(r.note)}</td></tr>`;
+  }).join('')}</tbody>`;
+  return runs;
+}
+
+function bucketTable(title, buckets, label = (k) => k) {
+  return `<div><h2>${title}</h2><table><thead><tr><th>구분</th><th>정확도</th><th>정답</th><th>틀림</th><th>누락</th></tr></thead>
+    <tbody>${buckets.map(b => `<tr><td>${esc(label(b.key))}</td>
+      <td class="num"><span class="bar" style="width:${Math.max(2, b.accuracy * 0.6)}px"></span> ${b.accuracy}%</td>
+      <td class="num">${b.correct}/${b.total}</td><td class="num ${b.wrong ? 'bad' : ''}">${b.wrong}</td>
+      <td class="num ${b.missing ? 'warn' : ''}">${b.missing}</td></tr>`).join('')}</tbody></table></div>`;
+}
+
+async function showRun(id) {
+  selected = id;
+  document.querySelectorAll('tr.run').forEach(tr => tr.classList.toggle('on', Number(tr.dataset.id) === id));
+  $('detail').innerHTML = '<div class="empty">평가 계산 중…</div>';
+  let e, v;
+  try {
+    [e, v] = await Promise.all([getJson(`/api/runs/${id}/evaluation`), getJson(`/api/runs/${id}/validation`)]);
+  } catch (err) {
+    $('detail').innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+    return;
+  }
+  const o = e.overall;
+  const errTypes = Object.entries(e.errorTypes);
+  const ruleNames = { BALANCE_IDENTITY: '자산 = 부채 + 자본', CAPITAL_IMPAIRMENT: '자본잠식', PERIOD_CHANGE: '전년 동기 대비 이상 변동' };
+  $('detail').innerHTML = `
+    <h2>실행 #${e.runId} 평가 · ${esc(e.extractor)} ${esc(e.version)}</h2>
+    <div class="cards">
+      <div class="card"><div class="label">정확도</div><div class="value">${o.accuracy}%</div></div>
+      <div class="card"><div class="label">맞음 / 평가 대상</div><div class="value">${o.correct} / ${o.total}</div></div>
+      <div class="card"><div class="label">틀린 값</div><div class="value ${o.wrong ? 'bad' : ''}">${o.wrong}</div></div>
+      <div class="card"><div class="label">누락</div><div class="value ${o.missing ? 'warn' : ''}">${o.missing}</div></div>
+      <div class="card"><div class="label">평가 제외 (정답 의심)</div><div class="value">${e.excluded.length}</div></div>
+      <div class="card"><div class="label">정답 없는 추출값</div><div class="value">${e.extra}</div></div>
+    </div>
+    <div class="grid2">
+      ${bucketTable('항목별', e.byMetric)}
+      ${bucketTable('기간 구분별', e.byPeriodScope, k => SCOPE[k] || k)}
+      ${bucketTable('연결/별도', e.byFsDiv, k => FS[k] || k)}
+      ${bucketTable('보고서 종류별', e.byReportType, k => TYPE[k] || k)}
+    </div>
+    ${errTypes.length ? `<h2>틀린 값의 유형</h2><table><tbody>${errTypes.map(([k, n]) =>
+      `<tr><td>${ERR[k] || k}</td><td class="num">${n}</td></tr>`).join('')}</tbody></table>` : ''}
+    <h2>틀리거나 빠진 값 (${e.errors.length})</h2>
+    ${e.errors.length ? `<div class="scroll"><table><thead><tr><th>회사</th><th>보고서</th><th>구분</th><th>항목</th>
+      <th>정답</th><th>추출</th><th>결과</th><th>근거(원문 행)</th></tr></thead><tbody>${e.errors.map(r => `<tr>
+      <td>${esc(r.company)}</td><td>${r.fiscalYear} ${TYPE[r.reportType]}</td><td>${FS[r.fsDiv]} · ${SCOPE[r.periodScope]}</td>
+      <td>${esc(r.metricName)}</td><td class="num">${won(r.truth)}</td><td class="num">${won(r.extracted)}</td>
+      <td class="${r.outcome === 'WRONG' ? 'bad' : 'warn'}">${r.outcome === 'WRONG' ? '틀림 · ' + (ERR[r.errorType] || '') : '누락'}</td>
+      <td class="wrap"><pre class="evidence">${esc(r.evidence || '')}</pre></td></tr>`).join('')}</tbody></table></div>`
+      : '<div class="empty">없음</div>'}
+    <h2>평가 제외 (${e.excluded.length})</h2>
+    <div class="hint" style="margin-bottom:8px">정답 숫자가 공시 본문에 없어 어떤 추출기도 맞힐 수 없는 값. DART 재무제표 API 와 공시 본문이 다른 경우.</div>
+    ${e.excluded.length ? `<div class="scroll"><table><thead><tr><th>회사</th><th>보고서</th><th>구분</th><th>항목</th><th>정답(API)</th><th>사유</th></tr></thead>
+      <tbody>${e.excluded.map(x => `<tr><td>${esc(x.company)}</td><td>${x.fiscalYear} ${TYPE[x.reportType]}</td>
+      <td>${FS[x.fsDiv]} · ${SCOPE[x.periodScope]}</td><td>${esc(x.metric)}</td><td class="num">${won(x.truth)}</td>
+      <td class="wrap">${esc(x.reason)}</td></tr>`).join('')}</tbody></table></div>` : '<div class="empty">없음</div>'}
+    <h2>검증 규칙 결과</h2>
+    <table><thead><tr><th>규칙</th><th>통과</th><th>경고/실패</th><th>건너뜀</th></tr></thead><tbody>
+      ${Object.entries(v.countsByRule).map(([rule, c]) => `<tr><td>${ruleNames[rule] || rule}</td>
+        <td class="num">${c.PASS || 0}</td><td class="num ${c.FAIL ? 'warn' : ''}">${c.FAIL || 0}</td>
+        <td class="num">${c.SKIPPED || 0}</td></tr>`).join('')}</tbody></table>
+    ${v.failures.length ? `<div class="scroll" style="margin-top:12px"><table><thead><tr><th>규칙</th><th>회사</th><th>보고서</th><th>구분</th><th>내용</th></tr></thead>
+      <tbody>${v.failures.map(f => `<tr><td>${ruleNames[f.ruleCode] || f.ruleCode}</td><td>${esc(f.company)}</td>
+      <td>${f.fiscalYear} ${TYPE[f.reportType]}</td><td>${FS[f.fsDiv]}</td><td class="wrap">${esc(f.message)}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}`;
+}
+
+$('runs').addEventListener('click', e => {
+  const tr = e.target.closest('tr.run');
+  if (tr) showRun(Number(tr.dataset.id));
+});
+
+$('run').addEventListener('click', async () => {
+  let token = null;
+  try { token = sessionStorage.getItem('adminToken'); } catch (e) { /* 무시 */ }
+  if (!token) token = prompt('관리자 토큰을 입력하세요 (.env 의 ADMIN_TOKEN)');
+  if (!token) return;
+  const btn = $('run');
+  btn.disabled = true; btn.textContent = '실행 중…';
+  try {
+    const res = await fetch('/api/admin/extractions?extractor=rule-based', { method: 'POST', headers: { 'X-Admin-Token': token } });
+    if (res.status === 401) {
+      try { sessionStorage.removeItem('adminToken'); } catch (e) { /* 무시 */ }
+      throw new Error('관리자 토큰이 올바르지 않습니다.');
+    }
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(body.error || `HTTP ${res.status}`);
+    try { sessionStorage.setItem('adminToken', token); } catch (e) { /* 무시 */ }
+    let runs;
+    do {
+      await new Promise(r => setTimeout(r, 3000));
+      runs = await loadRuns();
+    } while (runs.some(r => r.id === body.id && r.status === 'RUNNING'));
+    await showRun(body.id);
+  } catch (err) {
+    alert('실행 실패: ' + err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = '규칙 기반 추출 실행';
+  }
+});
+
+loadRuns().then(runs => {
+  const done = runs.find(r => r.status === 'COMPLETED');
+  if (done) showRun(done.id);
+}).catch(err => {
+  $('runs').innerHTML = `<tbody><tr><td class="empty">${esc(err.message)}</td></tr></tbody>`;
+});
+</script>
+</body>
+</html>

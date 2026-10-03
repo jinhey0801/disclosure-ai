@@ -12,6 +12,10 @@
 - 평가셋 기업은 Flyway `V4__seed_evaluation_companies.sql`에서 관리
 - 공시 원문(LLM 입력): `POST /api/admin/documents` → `report_section`. 재무상태표·손익계산서만, XBRL 속성(ACODE 등 사실상 정답)은 제거. 위치는 TABLE-GROUP ACLASS `{XBRL}BS_C|IS_S1…`로 찾는다
 - 입력 품질 점검: `GET /api/documents/coverage` (정답 숫자가 본문에 있는 비율, 현재 99.8%). 서암기계공업 2025 Q3 별도 손익 4건은 DART API 값과 공시 본문이 달라 평가에서 제외할 것
+- 추출: `Extractor` 인터페이스(보고서 하나 × 연결/별도 하나 단위). 현재 `RuleBasedExtractor`(기준선, v2 99.8%). LLM 추출기는 같은 인터페이스로 추가
+- 추출 실행 = Spring Batch `extractionJob` (extractStep 10건 청크·skip → validateStep). `POST /api/admin/extractions?extractor=…`, 결과 `extraction_run`/`extraction_result`/`validation_result`
+- 평가: `GET /api/runs/{id}/evaluation` (정답 숫자가 본문에 없는 정답은 제외), 화면 `/evaluation.html`. 규칙·동의어를 바꾸면 추출기 version 을 올리고 새 실행으로 비교
+- 검증 규칙 params 는 DB(JSON). PERIOD_CHANGE 는 정답 분포로 재조정함(V8: 자산·부채·자본·매출, 배수 10)
 - 관리 API(`/api/admin/**`)는 `X-Admin-Token` 헤더 필요 (`ADMIN_TOKEN`). 1분 넘는 작업은 `SingleRunJob`으로 백그라운드 실행 (리버스 프록시 60초 제한)
 
 ## NAS (Synology DS220+)
