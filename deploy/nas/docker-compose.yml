@@ -42,6 +42,7 @@ services:
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}
       DART_API_KEY: ${DART_API_KEY}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
       # NAS 가용 메모리가 작아 힙을 고정한다
       JAVA_OPTS: -Xms256m -Xmx512m -Duser.timezone=Asia/Seoul
     mem_limit: 768m

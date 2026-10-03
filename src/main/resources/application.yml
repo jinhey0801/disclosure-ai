@@ -25,6 +25,10 @@ dart:
   api-key: ${DART_API_KEY:}
   base-url: https://opendart.fss.or.kr/api
 
+admin:
+  # /api/admin/** 호출 시 X-Admin-Token 헤더로 보내야 하는 값. 비어 있으면 관리 API 차단.
+  token: ${ADMIN_TOKEN:}
+
 management:
   endpoints:
     web:
