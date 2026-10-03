@@ -99,10 +99,19 @@ const state = { companies: [], selected: null, detail: null, fsDiv: 'CFS', isSco
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// 배포 중(앱 재시작 약 40초)에는 리버스 프록시가 502 HTML 을 돌려준다. JSON 이 아니면 알아볼 수 있는 오류로 바꾼다.
+async function getJson(url) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(res.status === 502 || res.status === 503 || res.status === 504
+      ? '서버가 재시작 중입니다. 30초쯤 뒤 다시 시도해 주세요.' : `요청 실패 (HTTP ${res.status})`);
+  }
+  return res.json();
+}
 const eok = (v) => (Number(v) / 1e8).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 async function loadCompanies() {
-  state.companies = await (await fetch('/api/companies')).json();
+  state.companies = await getJson('/api/companies');
   const reports = state.companies.reduce((s, c) => s + c.reports, 0);
   const truths = state.companies.reduce((s, c) => s + c.groundTruths, 0);
   $('stats').textContent = `기업 ${state.companies.length} · 보고서 ${reports} · 정답 ${truths.toLocaleString()}`;
@@ -122,7 +131,12 @@ function renderCompanies() {
 async function selectCompany(code) {
   state.selected = code;
   renderCompanies();
-  state.detail = await (await fetch(`/api/companies/${code}`)).json();
+  try {
+    state.detail = await getJson(`/api/companies/${code}`);
+  } catch (err) {
+    $('main').innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+    return;
+  }
   const hasCfs = state.detail.values.some(v => v.fsDiv === 'CFS');
   if (!hasCfs) state.fsDiv = 'OFS';
   renderDetail();
@@ -243,7 +257,9 @@ $('collect').addEventListener('click', async () => {
     btn.disabled = false; btn.textContent = 'DART에서 다시 수집';
   }
 });
-loadCompanies();
+loadCompanies().catch(err => {
+  $('companies').innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+});
 </script>
 </body>
 </html>
