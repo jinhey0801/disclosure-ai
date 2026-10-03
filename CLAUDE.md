@@ -1,8 +1,14 @@
 # 프로젝트: 피투자사 보고자료 AI 구조화 서비스
 - 목표: 공시 문서를 LLM으로 읽어 메타데이터 기준으로 구조화, 검증, 일괄 처리
-- 스택: Java 17, Spring Boot 3, Spring AI(Anthropic), Spring Batch, MySQL, Docker, EC2
+- 스택: Kotlin 2.2 (JVM 17), Spring Boot 3.5, Spring AI(Anthropic), Spring Batch, MySQL, Docker, EC2
 - 기간: 2주. RAG, Security, Kafka는 범위 밖
 - 규칙: 기능 하나 끝날 때마다 내가 이해할 수 있게 설계 이유를 짧게 설명할 것
+
+## 코드 규칙 (Kotlin)
+- 소스는 `src/main/kotlin`, 테스트는 `src/test/kotlin` (테스트 이름은 백틱 한글 문장). Lombok 없음
+- 엔티티: 바뀌지 않는 값은 생성자 `val`, 바뀌는 값은 본문 `var … protected set` + 변경 메서드. `kotlin-jpa`(no-arg)·`allOpen`(Entity) 플러그인 전제
+- 주석에 `/api/admin/**` 처럼 `/*` 를 쓰면 Kotlin 중첩 주석이 열린다. 경로는 말로 쓸 것
+- JVM 17 이라 `BigDecimal.TWO` 같은 19+ API 금지
 
 ## 실행
 - 전체 기동: `docker compose up --build` → http://localhost:8080/actuator/health

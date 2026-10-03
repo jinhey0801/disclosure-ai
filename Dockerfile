@@ -3,7 +3,7 @@ FROM eclipse-temurin:17-jdk AS build
 WORKDIR /workspace
 
 # 의존성 레이어 캐시: 빌드 스크립트가 안 바뀌면 의존성 다운로드를 재사용
-COPY gradlew settings.gradle build.gradle ./
+COPY gradlew settings.gradle.kts build.gradle.kts ./
 COPY gradle gradle
 RUN chmod +x gradlew && ./gradlew dependencies --no-daemon > /dev/null
 
