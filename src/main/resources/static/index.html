@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>공시 정답 데이터</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --line: #e3e6eb; --text: #1b1f24; --muted: #6b7380;
+    --accent: #2f5bea; --accent-weak: #e8eefd; --neg: #c2362b; --ok: #1f8a4c; --warn: #b26a00; --warn-weak: #fff4e0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111418; --panel: #191d22; --line: #2a3038; --text: #e6e9ed; --muted: #8b94a1;
+      --accent: #7b9cff; --accent-weak: #1f2a44; --neg: #ff7a6e; --ok: #4cc283; --warn: #f0b056; --warn-weak: #3a2c14;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif; }
+  header { display: flex; align-items: center; gap: 16px; padding: 14px 20px; background: var(--panel);
+    border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 16px; margin: 0; }
+  header .stats { color: var(--muted); font-size: 13px; }
+  header .spacer { flex: 1; }
+  button { font: inherit; cursor: pointer; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 6px; padding: 6px 12px; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .layout { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100vh - 53px); }
+  aside { border-right: 1px solid var(--line); background: var(--panel); overflow-y: auto; }
+  aside input { width: calc(100% - 24px); margin: 12px; padding: 6px 10px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--text); font: inherit; }
+  .company { padding: 8px 14px; cursor: pointer; border-left: 3px solid transparent; }
+  .company:hover { background: var(--bg); }
+  .company.active { background: var(--accent-weak); border-left-color: var(--accent); }
+  .company .name { font-weight: 600; }
+  .company .meta { color: var(--muted); font-size: 12px; }
+  main { padding: 20px; overflow-x: auto; }
+  .title-row { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .title-row h2 { margin: 0; font-size: 20px; }
+  .title-row .meta { color: var(--muted); }
+  .badge { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--warn-weak);
+    color: var(--warn); font-weight: 600; }
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; padding: 5px 12px; }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .hint { color: var(--muted); font-size: 12px; }
+  table { border-collapse: separate; border-spacing: 0; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 8px; overflow: hidden; min-width: 100%; }
+  th, td { padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  thead th { background: var(--bg); font-weight: 600; text-align: right; font-size: 13px; }
+  thead th:first-child, tbody th { text-align: left; }
+  thead th a { color: var(--text); text-decoration: none; }
+  thead th a:hover { color: var(--accent); }
+  thead th .sub { display: block; color: var(--muted); font-weight: 400; font-size: 11px; }
+  tbody th { font-weight: 500; }
+  tbody th .aux { color: var(--muted); font-size: 11px; font-weight: 400; }
+  td { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  td.neg { color: var(--neg); }
+  td.none { color: var(--muted); }
+  td.syn { background: var(--warn-weak); }
+  td.syn::after { content: " *"; color: var(--warn); }
+  tr.check td, tr.check th { background: var(--bg); font-size: 12px; }
+  .ok { color: var(--ok); } .bad { color: var(--neg); }
+  .legend { margin-top: 10px; color: var(--muted); font-size: 12px; }
+  .legend span.syn { background: var(--warn-weak); padding: 0 4px; }
+  .empty { color: var(--muted); padding: 40px; text-align: center; }
+  @media (max-width: 720px) {
+    .layout { grid-template-columns: 1fr; }
+    aside { border-right: 0; border-bottom: 1px solid var(--line); max-height: 220px; }
+    main { padding: 16px; }
+    header { flex-wrap: wrap; padding: 12px 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>공시 정답 데이터</h1>
+  <span class="stats" id="stats"></span>
+  <span class="spacer"></span>
+  <button id="collect" title="DART에서 보고서 목록과 정답을 다시 가져옵니다 (1~2분)">DART에서 다시 수집</button>
+</header>
+<div class="layout">
+  <aside>
+    <input id="search" placeholder="회사 검색">
+    <div id="companies"></div>
+  </aside>
+  <main id="main"><div class="empty">왼쪽에서 회사를 선택하세요.</div></main>
+</div>
+<script>
+const METRIC_ORDER = ['TOTAL_ASSETS', 'TOTAL_LIABILITIES', 'TOTAL_EQUITY', 'CASH_AND_EQUIVALENTS', 'SHARE_CAPITAL',
+  'REVENUE', 'OPERATING_INCOME', 'NET_INCOME'];
+const TYPE_LABEL = { Q1: '1분기', HALF: '반기', Q3: '3분기', ANNUAL: '사업' };
+const state = { companies: [], selected: null, detail: null, fsDiv: 'CFS', isScope: 'CUMULATIVE' };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const eok = (v) => (Number(v) / 1e8).toLocaleString('ko-KR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+async function loadCompanies() {
+  state.companies = await (await fetch('/api/companies')).json();
+  const reports = state.companies.reduce((s, c) => s + c.reports, 0);
+  const truths = state.companies.reduce((s, c) => s + c.groundTruths, 0);
+  $('stats').textContent = `기업 ${state.companies.length} · 보고서 ${reports} · 정답 ${truths.toLocaleString()}`;
+  renderCompanies();
+}
+
+function renderCompanies() {
+  const q = $('search').value.trim();
+  $('companies').innerHTML = state.companies
+    .filter(c => !q || c.corpName.includes(q) || (c.stockCode || '').includes(q))
+    .map(c => `<div class="company ${c.corpCode === state.selected ? 'active' : ''}" data-code="${c.corpCode}">
+        <div class="name">${esc(c.corpName)}</div>
+        <div class="meta">${esc(c.stockCode)} · 보고서 ${c.reports} · 정답 ${c.groundTruths}</div></div>`)
+    .join('');
+}
+
+async function selectCompany(code) {
+  state.selected = code;
+  renderCompanies();
+  state.detail = await (await fetch(`/api/companies/${code}`)).json();
+  const hasCfs = state.detail.values.some(v => v.fsDiv === 'CFS');
+  if (!hasCfs) state.fsDiv = 'OFS';
+  renderDetail();
+}
+
+function renderDetail() {
+  const d = state.detail;
+  const hasCfs = d.values.some(v => v.fsDiv === 'CFS');
+  const metrics = [...d.metrics].sort((a, b) => METRIC_ORDER.indexOf(a.code) - METRIC_ORDER.indexOf(b.code));
+  const pick = (reportId, code, scope) => d.values.find(v => v.reportId === reportId && v.metricCode === code
+    && v.fsDiv === state.fsDiv && v.periodScope === scope);
+  const scopeOf = (m, r) => m.statementType === 'BS' ? 'INSTANT'
+    : (r.reportType === 'ANNUAL' ? 'CUMULATIVE' : state.isScope);
+
+  const latest = d.reports.at(-1);
+  const eq = latest && pick(latest.id, 'TOTAL_EQUITY', 'INSTANT');
+  const cap = latest && pick(latest.id, 'SHARE_CAPITAL', 'INSTANT');
+  const impaired = eq && cap && Number(eq.value) < Number(cap.value)
+    ? `<span class="badge">${Number(eq.value) < 0 ? '완전자본잠식' : '부분자본잠식'} (최근 보고서 기준)</span>` : '';
+
+  const head = d.reports.map(r => `<th><a href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${r.rceptNo}"
+      target="_blank" rel="noopener" title="${esc(r.title)} — DART 원문 열기">${r.fiscalYear} ${TYPE_LABEL[r.reportType]}</a>
+      <span class="sub">${r.periodEnd}</span></th>`).join('');
+
+  const rows = metrics.map(m => `<tr><th>${esc(m.standardName)}${m.evaluated ? '' : ' <span class="aux">보조</span>'}</th>${
+    d.reports.map(r => {
+      const v = pick(r.id, m.code, scopeOf(m, r));
+      if (!v) return '<td class="none">—</td>';
+      const syn = m.dartAccountId && v.sourceAccountId !== m.dartAccountId;
+      const tip = `${Number(v.value).toLocaleString()}원 · 원문 계정명: ${v.sourceAccountName ?? '-'} · 계정코드: ${v.sourceAccountId ?? '-'}`;
+      return `<td class="${Number(v.value) < 0 ? 'neg' : ''} ${syn ? 'syn' : ''}" title="${esc(tip)}">${eok(v.value)}</td>`;
+    }).join('')}</tr>`).join('');
+
+  const check = `<tr class="check"><th>자산 = 부채 + 자본</th>${d.reports.map(r => {
+    const a = pick(r.id, 'TOTAL_ASSETS', 'INSTANT'), l = pick(r.id, 'TOTAL_LIABILITIES', 'INSTANT'),
+      e = pick(r.id, 'TOTAL_EQUITY', 'INSTANT');
+    if (!a || !l || !e) return '<td class="none">—</td>';
+    const diff = Number(a.value) - Number(l.value) - Number(e.value);
+    if (diff === 0) return '<td class="ok">일치</td>';
+    // 검증 규칙(BALANCE_IDENTITY)과 같은 0.1% 허용 오차. 원문 자체의 반올림 차이가 있다.
+    if (Math.abs(diff) <= Math.abs(Number(a.value)) * 0.001) {
+      return `<td class="ok" title="원문 반올림 차이 ${diff.toLocaleString()}원">일치 (${diff > 0 ? '+' : ''}${diff.toLocaleString()}원)</td>`;
+    }
+    return `<td class="bad" title="차이 ${diff.toLocaleString()}원">차이 ${eok(diff)}</td>`;
+  }).join('')}</tr>`;
+
+  $('main').innerHTML = `
+    <div class="title-row"><h2>${esc(d.company.corpName)}</h2>
+      <span class="meta">${esc(d.company.stockCode)} · DART ${esc(d.company.corpCode)}</span>${impaired}</div>
+    <div class="controls">
+      <div class="seg" id="fs">
+        <button data-v="CFS" class="${state.fsDiv === 'CFS' ? 'on' : ''}" ${hasCfs ? '' : 'disabled title="연결재무제표 없음"'}>연결</button>
+        <button data-v="OFS" class="${state.fsDiv === 'OFS' ? 'on' : ''}">별도</button>
+      </div>
+      <div class="seg" id="scope">
+        <button data-v="CUMULATIVE" class="${state.isScope === 'CUMULATIVE' ? 'on' : ''}">손익 누적</button>
+        <button data-v="QUARTER" class="${state.isScope === 'QUARTER' ? 'on' : ''}">손익 3개월</button>
+      </div>
+      <span class="hint">단위: 억원 · 셀에 마우스를 올리면 원 단위 값과 원문 계정명 · 열 제목을 누르면 DART 원문</span>
+    </div>
+    ${d.reports.length ? `<table><thead><tr><th>항목</th>${head}</tr></thead><tbody>${rows}${check}</tbody></table>`
+      : '<div class="empty">수집된 보고서가 없습니다.</div>'}
+    <div class="legend"><span class="syn">노란 칸 *</span> DART 표준계정코드가 맞지 않아 계정명 동의어로 찾은 값 (예: 알체라 매출액 = 영업수익) ·
+      사업보고서의 손익은 항상 12개월 누적</div>`;
+}
+
+$('companies').addEventListener('click', e => {
+  const el = e.target.closest('.company');
+  if (el) selectCompany(el.dataset.code);
+});
+$('search').addEventListener('input', renderCompanies);
+$('main').addEventListener('click', e => {
+  const b = e.target.closest('.seg button');
+  if (!b || b.disabled) return;
+  if (b.parentElement.id === 'fs') state.fsDiv = b.dataset.v;
+  if (b.parentElement.id === 'scope') state.isScope = b.dataset.v;
+  renderDetail();
+});
+$('collect').addEventListener('click', async () => {
+  if (!confirm('DART에서 18개사 보고서와 정답을 다시 수집할까요? (1~2분)')) return;
+  const btn = $('collect');
+  btn.disabled = true; btn.textContent = '수집 중…';
+  try {
+    const res = await fetch('/api/admin/collect', { method: 'POST' });
+    const summary = await res.json();
+    const warnings = summary.flatMap(s => s.warnings.map(w => `${s.corpName}: ${w}`));
+    alert(`수집 완료. 경고 ${warnings.length}건${warnings.length ? '\n\n' + warnings.join('\n') : ''}`);
+    await loadCompanies();
+    if (state.selected) await selectCompany(state.selected);
+  } catch (err) {
+    alert('수집 실패: ' + err);
+  } finally {
+    btn.disabled = false; btn.textContent = 'DART에서 다시 수집';
+  }
+});
+loadCompanies();
+</script>
+</body>
+</html>
