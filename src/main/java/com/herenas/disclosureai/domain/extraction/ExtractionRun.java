@@ -30,6 +30,10 @@ public class ExtractionRun {
 	@Column(nullable = false, length = 50)
 	private String promptVersion;
 
+	/** 입력 변형 (InputVariant 이름). 원문이면 ORIGINAL */
+	@Column(nullable = false, length = 20)
+	private String inputVariant;
+
 	@Enumerated(EnumType.STRING)
 	@Column(nullable = false, length = 20)
 	private Status status;
@@ -45,9 +49,10 @@ public class ExtractionRun {
 	@Column(length = 500)
 	private String note;
 
-	public ExtractionRun(String model, String promptVersion, String note) {
+	public ExtractionRun(String model, String promptVersion, String inputVariant, String note) {
 		this.model = model;
 		this.promptVersion = promptVersion;
+		this.inputVariant = inputVariant;
 		this.note = note;
 		this.status = Status.RUNNING;
 		this.startedAt = LocalDateTime.now();

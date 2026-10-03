@@ -11,6 +11,7 @@ import com.herenas.disclosureai.domain.metric.MetricSpec;
 import com.herenas.disclosureai.domain.report.DisclosureReport;
 import com.herenas.disclosureai.extraction.Extractor;
 import com.herenas.disclosureai.extraction.Extractor.ExtractedValue;
+import com.herenas.disclosureai.extraction.InputVariant;
 import jakarta.persistence.EntityManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,17 +33,20 @@ public class ExtractionItemProcessor implements ItemProcessor<Long, List<Extract
 	private final MetricDefinitionRepository metricRepository;
 	private final Extractor extractor;
 	private final Long runId;
+	private final InputVariant variant;
 
 	public ExtractionItemProcessor(EntityManager em, ReportSectionRepository sectionRepository,
 			MetricDefinitionRepository metricRepository, List<Extractor> extractors,
 			@Value("#{jobParameters['runId']}") Long runId,
-			@Value("#{jobParameters['extractor']}") String extractorName) {
+			@Value("#{jobParameters['extractor']}") String extractorName,
+			@Value("#{jobParameters['variant'] ?: 'ORIGINAL'}") String variant) {
 		this.em = em;
 		this.sectionRepository = sectionRepository;
 		this.metricRepository = metricRepository;
 		this.extractor = extractors.stream().filter(e -> e.name().equals(extractorName)).findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("알 수 없는 추출기: " + extractorName));
 		this.runId = runId;
+		this.variant = InputVariant.valueOf(variant);
 	}
 
 	@Override
@@ -66,7 +70,7 @@ public class ExtractionItemProcessor implements ItemProcessor<Long, List<Extract
 				continue;
 			}
 			List<ExtractedValue> values = extractor.extract(new Extractor.Input(report.getReportType(),
-					report.getFiscalYear(), fsDiv, input, specs));
+					report.getFiscalYear(), fsDiv, variant.apply(input), specs));
 			for (ExtractedValue v : values) {
 				results.add(ExtractionResult.builder()
 						.run(run)

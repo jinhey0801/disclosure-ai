@@ -50,11 +50,15 @@ public class FinancialStatementParser {
 			Element titleEl = group.getElementsByTag("TITLE").first();
 			String title = titleEl == null ? aclass : clean(titleEl.text());
 			String content = render(group, title);
-			Matcher unit = UNIT.matcher(content);
-			sections.add(new ParsedSection(fsDiv, type, seq, title, unit.find() ? unit.group(1) : null, content,
-					aclass));
+			sections.add(new ParsedSection(fsDiv, type, seq, title, unitLabelOf(content), content, aclass));
 		}
 		return sections;
+	}
+
+	/** 본문에서 첫 "(단위 : X)" 의 X. 없으면 null. */
+	public static String unitLabelOf(String content) {
+		Matcher unit = UNIT.matcher(content);
+		return unit.find() ? unit.group(1) : null;
 	}
 
 	private String render(Element group, String title) {

@@ -25,6 +25,12 @@ class EvaluationServiceTest {
 	}
 
 	@Test
+	void 반올림된_입력에서_단위를_빼먹어도_UNIT_SCALE() {
+		// 1,234,567,890원을 백만원 표기(1,235)로 읽고 원으로 착각한 경우
+		assertThat(classify(1_234_567_890L, 1_235, Map.of())).isEqualTo(ErrorType.UNIT_SCALE);
+	}
+
+	@Test
 	void 다른_기간_구분의_정답과_같으면_PERIOD_SCOPE_SWAP() {
 		// 3개월치 자리에 누적치를 넣은 경우
 		assertThat(classify(300, 900, Map.of("scope:0", BigDecimal.valueOf(900)))).isEqualTo(ErrorType.PERIOD_SCOPE_SWAP);

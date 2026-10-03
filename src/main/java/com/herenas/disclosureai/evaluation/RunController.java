@@ -3,8 +3,10 @@ package com.herenas.disclosureai.evaluation;
 import com.herenas.disclosureai.domain.extraction.ExtractionRun;
 import com.herenas.disclosureai.domain.extraction.ExtractionRunRepository;
 import com.herenas.disclosureai.extraction.ExtractionLauncher;
+import com.herenas.disclosureai.extraction.InputVariant;
 import com.herenas.disclosureai.validation.ValidationService;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +34,11 @@ public class RunController {
 	public record StepView(String name, String status, long read, long written, long skipped) {
 	}
 
-	public record RunView(Long id, String extractor, String version, ExtractionRun.Status status,
+	public record VariantView(String name, String label) {
+	}
+
+	public record RunView(Long id, String extractor, String version, String inputVariant, String inputVariantLabel,
+			ExtractionRun.Status status,
 			LocalDateTime startedAt, LocalDateTime finishedAt, String note, List<StepView> steps) {
 	}
 
@@ -41,11 +47,17 @@ public class RunController {
 		return launcher.extractorNames();
 	}
 
+	@GetMapping("/api/variants")
+	public List<VariantView> variants() {
+		return Arrays.stream(InputVariant.values()).map(v -> new VariantView(v.name(), v.label())).toList();
+	}
+
 	/** 관리용: 추출 실행 시작 (Spring Batch, 백그라운드) */
 	@PostMapping("/api/admin/extractions")
-	public ResponseEntity<?> start(@RequestParam(defaultValue = "rule-based") String extractor) throws Exception {
+	public ResponseEntity<?> start(@RequestParam(defaultValue = "rule-based") String extractor,
+			@RequestParam(defaultValue = "ORIGINAL") InputVariant variant) throws Exception {
 		try {
-			return ResponseEntity.status(HttpStatus.ACCEPTED).body(view(launcher.start(extractor)));
+			return ResponseEntity.status(HttpStatus.ACCEPTED).body(view(launcher.start(extractor, variant)));
 		} catch (IllegalArgumentException e) {
 			return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
 		} catch (IllegalStateException e) {
@@ -86,7 +98,9 @@ public class RunController {
 						.toList();
 			}
 		}
-		return new RunView(run.getId(), run.getModel(), run.getPromptVersion(), run.getStatus(), run.getStartedAt(),
+		InputVariant variant = InputVariant.valueOf(run.getInputVariant());
+		return new RunView(run.getId(), run.getModel(), run.getPromptVersion(), variant.name(), variant.label(),
+				run.getStatus(), run.getStartedAt(),
 				run.getFinishedAt(), run.getNote(), steps);
 	}
 }

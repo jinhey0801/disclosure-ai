@@ -41,16 +41,18 @@ public class ExtractionLauncher {
 	}
 
 	/** @throws IllegalStateException 다른 실행이 진행 중일 때 */
-	public synchronized ExtractionRun start(String extractorName) throws Exception {
+	public synchronized ExtractionRun start(String extractorName, InputVariant variant) throws Exception {
 		Extractor extractor = extractors.stream().filter(e -> e.name().equals(extractorName)).findFirst()
 				.orElseThrow(() -> new IllegalArgumentException("알 수 없는 추출기: " + extractorName));
 		if (runRepository.existsByStatus(ExtractionRun.Status.RUNNING)) {
 			throw new IllegalStateException("이미 실행 중인 추출이 있습니다.");
 		}
-		ExtractionRun run = runRepository.save(new ExtractionRun(extractor.name(), extractor.version(), null));
+		ExtractionRun run = runRepository.save(
+				new ExtractionRun(extractor.name(), extractor.version(), variant.name(), null));
 		launcher.run(extractionJob, new JobParametersBuilder()
 				.addLong("runId", run.getId())
 				.addString("extractor", extractor.name())
+				.addString("variant", variant.name())
 				.toJobParameters());
 		return run;
 	}

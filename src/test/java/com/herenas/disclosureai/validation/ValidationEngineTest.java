@@ -96,6 +96,17 @@ class ValidationEngineTest {
 	}
 
 	@Test
+	void 자산총계가_10억_원_미만이면_단위_오독으로_본다() {
+		Map<String, Object> minScale = Map.of("metric", "TOTAL_ASSETS", "min", 1_000_000_000L);
+
+		// 백만원 표기를 원으로 읽으면 225억 원이 22,500 원이 된다
+		assertThat(engine.evaluate(RuleType.MIN_SCALE, minScale, bs(22_500, 1, 1, 1), null).outcome())
+				.isEqualTo(Outcome.FAIL);
+		assertThat(engine.evaluate(RuleType.MIN_SCALE, minScale, bs(22_500_000_000L, 1, 1, 1), null).outcome())
+				.isEqualTo(Outcome.PASS);
+	}
+
+	@Test
 	void 전년_동기_보고서가_없으면_건너뛴다() {
 		assertThat(engine.evaluate(RuleType.PERIOD_CHANGE, CHANGE, bs(1, 1, 1, 1), null).outcome())
 				.isEqualTo(Outcome.SKIPPED);

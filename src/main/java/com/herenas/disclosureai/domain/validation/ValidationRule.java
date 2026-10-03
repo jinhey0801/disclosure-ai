@@ -18,7 +18,7 @@ import org.hibernate.type.SqlTypes;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class ValidationRule {
 
-	public enum RuleType { BALANCE_IDENTITY, CAPITAL_IMPAIRMENT, PERIOD_CHANGE }
+	public enum RuleType { BALANCE_IDENTITY, CAPITAL_IMPAIRMENT, PERIOD_CHANGE, MIN_SCALE }
 
 	public enum Severity { ERROR, WARNING }
 

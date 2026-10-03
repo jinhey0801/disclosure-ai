@@ -15,6 +15,7 @@
 - 추출: `Extractor` 인터페이스(보고서 하나 × 연결/별도 하나 단위). 현재 `RuleBasedExtractor`(기준선, v2 99.8%). LLM 추출기는 같은 인터페이스로 추가
 - 추출 실행 = Spring Batch `extractionJob` (extractStep 10건 청크·skip → validateStep). `POST /api/admin/extractions?extractor=…`, 결과 `extraction_run`/`extraction_result`/`validation_result`
 - 평가: `GET /api/runs/{id}/evaluation` (정답 숫자가 본문에 없는 정답은 제외), 화면 `/evaluation.html`. 규칙·동의어를 바꾸면 추출기 version 을 올리고 새 실행으로 비교
+- 입력 변형(`InputVariant`): 같은 본문을 천원·백만원·혼합·비표준 단위 표기로 바꿔 단위 함정을 재현. 평가는 반 단위 반올림 오차 허용. 규칙 기반은 비표준 표기에서 0.2%로 무너지고 MIN_SCALE 규칙이 214/214 탐지
 - 검증 규칙 params 는 DB(JSON). PERIOD_CHANGE 는 정답 분포로 재조정함(V8: 자산·부채·자본·매출, 배수 10)
 - 관리 API(`/api/admin/**`)는 `X-Admin-Token` 헤더 필요 (`ADMIN_TOKEN`). 1분 넘는 작업은 `SingleRunJob`으로 백그라운드 실행 (리버스 프록시 60초 제한)
 

@@ -7,15 +7,18 @@ import com.herenas.disclosureai.domain.document.ReportSection;
 import com.herenas.disclosureai.domain.extraction.ExtractionRun;
 import com.herenas.disclosureai.domain.metric.StatementType;
 import com.herenas.disclosureai.domain.report.ReportType;
+import com.herenas.disclosureai.domain.validation.ValidationResult;
+import com.herenas.disclosureai.domain.validation.ValidationRule;
+import com.herenas.disclosureai.extraction.InputVariant;
 import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * 평가 대상: 평가 항목(evaluated)이고, 그 보고서·재무제표 본문이 있고, 정답 숫자가 본문에 실제로 있는 정답.
  * 본문에 없는 정답(DART API 와 공시 본문이 다른 경우 등)은 모델이 맞힐 수 없으므로 제외하고 따로 보여준다.
+ * 입력 변형(천원·백만원)으로 실행했으면 반올림 오차(반 단위) 이내를 정답으로 본다.
  */
 @Service
 @RequiredArgsConstructor
@@ -52,10 +56,17 @@ public class EvaluationService {
 			PeriodScope periodScope, BigDecimal truth, String reason) {
 	}
 
-	public record Evaluation(Long runId, String extractor, String version, ExtractionRun.Status status,
-			Bucket overall, int extra, List<Bucket> byMetric, List<Bucket> byPeriodScope, List<Bucket> byFsDiv,
-			List<Bucket> byReportType, List<Bucket> byCompany, Map<ErrorType, Long> errorTypes, List<Row> errors,
-			List<Excluded> excluded) {
+	/**
+	 * 검증 규칙이 틀린 값을 얼마나 잡았나 (정답이 없는 운영 환경에서는 검증 규칙이 유일한 신호).
+	 * 단위는 (보고서, 연결/별도). 자본잠식은 오류가 아니라 사업상 경고라 제외한다.
+	 */
+	public record Detection(int checked, int withWrongValues, int detected, int falseAlarms) {
+	}
+
+	public record Evaluation(Long runId, String extractor, String version, String inputVariant,
+			String inputVariantLabel, ExtractionRun.Status status, Bucket overall, int extra, List<Bucket> byMetric,
+			List<Bucket> byPeriodScope, List<Bucket> byFsDiv, List<Bucket> byReportType, List<Bucket> byCompany,
+			Map<ErrorType, Long> errorTypes, Detection detection, List<Row> errors, List<Excluded> excluded) {
 	}
 
 	private record Key(Long reportId, String metric, FsDiv fsDiv, PeriodScope scope) {
@@ -73,6 +84,7 @@ public class EvaluationService {
 		if (run == null) {
 			throw new IllegalArgumentException("없는 실행: " + runId);
 		}
+		InputVariant variant = InputVariant.valueOf(run.getInputVariant());
 		Map<String, String> sectionText = sectionText();
 		List<Truth> allTruths = truths();
 		Map<Key, Extracted> extracted = extracted(runId);
@@ -93,7 +105,9 @@ public class EvaluationService {
 		}
 		Map<Key, Truth> truthByKey = allTruths.stream().collect(Collectors.toMap(Truth::key, Function.identity()));
 
-		List<Row> rows = truths.stream().map(t -> compare(t, extracted.get(t.key()), truthByKey)).toList();
+		List<Row> rows = truths.stream()
+				.map(t -> compare(t, extracted.get(t.key()), truthByKey, variant.tolerance(t.statementType())))
+				.toList();
 		long extra = extracted.keySet().stream().filter(k -> !truthByKey.containsKey(k)).count();
 
 		List<Row> errors = rows.stream().filter(r -> r.outcome() != Outcome.CORRECT)
@@ -103,17 +117,36 @@ public class EvaluationService {
 		Map<ErrorType, Long> errorTypes = rows.stream().filter(r -> r.errorType() != null)
 				.collect(Collectors.groupingBy(Row::errorType, LinkedHashMap::new, Collectors.counting()));
 
-		return new Evaluation(runId, run.getModel(), run.getPromptVersion(), run.getStatus(),
-				bucket("전체", rows), (int) extra,
+		return new Evaluation(runId, run.getModel(), run.getPromptVersion(), variant.name(), variant.label(),
+				run.getStatus(), bucket("전체", rows), (int) extra,
 				buckets(rows, Row::metricName), buckets(rows, r -> r.periodScope().name()),
 				buckets(rows, r -> r.fsDiv().name()), buckets(rows, r -> r.reportType().name()),
-				buckets(rows, Row::company), errorTypes, errors, excluded);
+				buckets(rows, Row::company), errorTypes, detection(runId, rows), errors, excluded);
 	}
 
-	private Row compare(Truth t, Extracted e, Map<Key, Truth> truthByKey) {
+	private Detection detection(Long runId, List<Row> rows) {
+		Set<String> checked = rows.stream().map(r -> r.reportId() + ":" + r.fsDiv()).collect(Collectors.toSet());
+		Set<String> withWrong = rows.stream().filter(r -> r.outcome() == Outcome.WRONG)
+				.map(r -> r.reportId() + ":" + r.fsDiv()).collect(Collectors.toSet());
+		Set<String> flagged = em.createQuery(
+				"select v from ValidationResult v join fetch v.rule where v.run.id = :runId "
+						+ "and v.outcome = :fail and v.rule.ruleType <> :impairment", ValidationResult.class)
+				.setParameter("runId", runId)
+				.setParameter("fail", ValidationResult.Outcome.FAIL)
+				.setParameter("impairment", ValidationRule.RuleType.CAPITAL_IMPAIRMENT)
+				.getResultList().stream()
+				.map(v -> v.getReport().getId() + ":" + v.getFsDiv())
+				.filter(checked::contains)
+				.collect(Collectors.toSet());
+		int detected = (int) withWrong.stream().filter(flagged::contains).count();
+		int falseAlarms = (int) flagged.stream().filter(k -> !withWrong.contains(k)).count();
+		return new Detection(checked.size(), withWrong.size(), detected, falseAlarms);
+	}
+
+	private Row compare(Truth t, Extracted e, Map<Key, Truth> truthByKey, BigDecimal tolerance) {
 		BigDecimal value = e == null ? null : e.value();
 		Outcome outcome = value == null ? Outcome.MISSING
-				: t.value().compareTo(value) == 0 ? Outcome.CORRECT : Outcome.WRONG;
+				: t.value().subtract(value).abs().compareTo(tolerance) <= 0 ? Outcome.CORRECT : Outcome.WRONG;
 		ErrorType type = null;
 		if (outcome == Outcome.WRONG) {
 			Map<String, BigDecimal> others = new HashMap<>();
@@ -147,9 +180,10 @@ public class EvaluationService {
 			return ErrorType.SIGN;
 		}
 		if (truth.signum() != 0 && extracted.signum() != 0) {
-			BigDecimal ratio = extracted.divide(truth, 6, RoundingMode.HALF_UP).abs();
-			for (String scale : List.of("1000", "1000000", "100000000", "0.001", "0.000001")) {
-				if (ratio.compareTo(new BigDecimal(scale)) == 0) {
+			// 반올림된 입력(백만원 등)에서도 잡히도록 배율을 log10 으로 비교한다: 천 배 = 3, 백만 배 = 6
+			double log = Math.log10(extracted.abs().doubleValue() / truth.abs().doubleValue());
+			for (int exponent : List.of(3, 6, 8, -3, -6, -8)) {
+				if (Math.abs(log - exponent) < 0.15) {
 					return ErrorType.UNIT_SCALE;
 				}
 			}

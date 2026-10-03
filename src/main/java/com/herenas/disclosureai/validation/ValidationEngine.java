@@ -49,7 +49,24 @@ public class ValidationEngine {
 			case BALANCE_IDENTITY -> balanceIdentity(params, current);
 			case CAPITAL_IMPAIRMENT -> capitalImpairment(params, current);
 			case PERIOD_CHANGE -> periodChange(params, current, prior);
+			case MIN_SCALE -> minScale(params, current);
 		};
+	}
+
+	/** 단위를 통째로 잘못 읽은 경우: 다른 규칙은 비율만 보므로 못 잡는다 */
+	private Result minScale(Map<String, Object> params, Snapshot s) {
+		String metric = (String) params.get("metric");
+		BigDecimal value = s.instant(metric);
+		BigDecimal min = decimal(params.get("min"));
+		if (value == null) {
+			return skipped("입력 항목 없음");
+		}
+		Map<String, Object> details = Map.of("value", value, "min", min);
+		if (value.abs().compareTo(min) < 0) {
+			return new Result(Outcome.FAIL, metric + " " + value.toPlainString() + "원이 최소 규모 " + min.toPlainString()
+					+ "원보다 작음 (단위 오독 의심)", details);
+		}
+		return new Result(Outcome.PASS, "규모 정상", details);
 	}
 
 	private Result balanceIdentity(Map<String, Object> params, Snapshot s) {

@@ -29,6 +29,8 @@
     border-radius: 6px; padding: 6px 12px; }
   button:hover { border-color: var(--accent); }
   button:disabled { opacity: .5; cursor: default; }
+  select { font: inherit; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+    border-radius: 6px; padding: 5px 8px; }
   main { padding: 20px; max-width: 1280px; margin: 0 auto; }
   h2 { font-size: 16px; margin: 28px 0 10px; }
   h2:first-child { margin-top: 0; }
@@ -60,6 +62,7 @@
   <h1>공시 AI 구조화</h1>
   <nav><a href="/">정답 데이터</a><a href="/evaluation.html" class="on">추출 평가</a></nav>
   <span class="spacer"></span>
+  <select id="variant" title="같은 공시를 단위만 바꿔 넣는 입력 변형"></select>
   <button id="run" title="규칙 기반 추출기로 125개 보고서를 다시 추출하고 평가합니다 (약 40초)">규칙 기반 추출 실행</button>
 </header>
 <main>
@@ -102,12 +105,12 @@ async function loadRuns() {
   }
   const accuracies = await Promise.all(runs.map(r => r.status === 'COMPLETED'
     ? getJson(`/api/runs/${r.id}/evaluation`).then(e => e.overall).catch(() => null) : null));
-  $('runs').innerHTML = `<thead><tr><th>#</th><th>추출기</th><th>버전</th><th>상태</th><th>시작</th><th>소요</th>
+  $('runs').innerHTML = `<thead><tr><th>#</th><th>추출기</th><th>버전</th><th>입력</th><th>상태</th><th>시작</th><th>소요</th>
       <th>보고서(읽음/처리/건너뜀)</th><th>정확도</th><th>메모</th></tr></thead><tbody>${runs.map((r, i) => {
     const step = r.steps.find(s => s.name === 'extractStep');
     const acc = accuracies[i];
     return `<tr class="run ${r.id === selected ? 'on' : ''}" data-id="${r.id}">
-      <td>${r.id}</td><td>${esc(r.extractor)}</td><td>${esc(r.version)}</td>
+      <td>${r.id}</td><td>${esc(r.extractor)}</td><td>${esc(r.version)}</td><td>${esc(r.inputVariantLabel)}</td>
       <td class="${r.status === 'FAILED' ? 'bad' : r.status === 'RUNNING' ? 'warn' : ''}">${r.status}</td>
       <td>${esc((r.startedAt || '').replace('T', ' ').slice(0, 19))}</td><td>${duration(r)}</td>
       <td class="num">${step ? `${step.read} / ${step.written} / ${step.skipped}` : '—'}</td>
@@ -138,9 +141,10 @@ async function showRun(id) {
   }
   const o = e.overall;
   const errTypes = Object.entries(e.errorTypes);
-  const ruleNames = { BALANCE_IDENTITY: '자산 = 부채 + 자본', CAPITAL_IMPAIRMENT: '자본잠식', PERIOD_CHANGE: '전년 동기 대비 이상 변동' };
+  const ruleNames = { BALANCE_IDENTITY: '자산 = 부채 + 자본', CAPITAL_IMPAIRMENT: '자본잠식',
+    PERIOD_CHANGE: '전년 동기 대비 이상 변동', MIN_SCALE: '자산총계 규모 (단위 오독)' };
   $('detail').innerHTML = `
-    <h2>실행 #${e.runId} 평가 · ${esc(e.extractor)} ${esc(e.version)}</h2>
+    <h2>실행 #${e.runId} 평가 · ${esc(e.extractor)} ${esc(e.version)} · 입력: ${esc(e.inputVariantLabel)}</h2>
     <div class="cards">
       <div class="card"><div class="label">정확도</div><div class="value">${o.accuracy}%</div></div>
       <div class="card"><div class="label">맞음 / 평가 대상</div><div class="value">${o.correct} / ${o.total}</div></div>
@@ -148,6 +152,11 @@ async function showRun(id) {
       <div class="card"><div class="label">누락</div><div class="value ${o.missing ? 'warn' : ''}">${o.missing}</div></div>
       <div class="card"><div class="label">평가 제외 (정답 의심)</div><div class="value">${e.excluded.length}</div></div>
       <div class="card"><div class="label">정답 없는 추출값</div><div class="value">${e.extra}</div></div>
+      <div class="card" title="틀린 값이 있는 (보고서, 연결/별도) 중 검증 규칙이 경고한 비율. 자본잠식 제외">
+        <div class="label">검증 규칙 탐지</div>
+        <div class="value">${e.detection.withWrongValues ? `${e.detection.detected} / ${e.detection.withWrongValues}` : '—'}</div></div>
+      <div class="card" title="틀린 값이 없는데 검증 규칙이 경고한 (보고서, 연결/별도)">
+        <div class="label">오경보</div><div class="value">${e.detection.falseAlarms} / ${e.detection.checked}</div></div>
     </div>
     <div class="grid2">
       ${bucketTable('항목별', e.byMetric)}
@@ -195,7 +204,9 @@ $('run').addEventListener('click', async () => {
   const btn = $('run');
   btn.disabled = true; btn.textContent = '실행 중…';
   try {
-    const res = await fetch('/api/admin/extractions?extractor=rule-based', { method: 'POST', headers: { 'X-Admin-Token': token } });
+    const variant = $('variant').value || 'ORIGINAL';
+    const res = await fetch(`/api/admin/extractions?extractor=rule-based&variant=${encodeURIComponent(variant)}`,
+      { method: 'POST', headers: { 'X-Admin-Token': token } });
     if (res.status === 401) {
       try { sessionStorage.removeItem('adminToken'); } catch (e) { /* 무시 */ }
       throw new Error('관리자 토큰이 올바르지 않습니다.');
@@ -215,6 +226,10 @@ $('run').addEventListener('click', async () => {
     btn.disabled = false; btn.textContent = '규칙 기반 추출 실행';
   }
 });
+
+getJson('/api/variants').then(list => {
+  $('variant').innerHTML = list.map(v => `<option value="${v.name}">입력: ${esc(v.label)}</option>`).join('');
+}).catch(() => { $('variant').style.display = 'none'; });
 
 loadRuns().then(runs => {
   const done = runs.find(r => r.status === 'COMPLETED');
