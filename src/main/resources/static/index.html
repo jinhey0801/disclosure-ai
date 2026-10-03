@@ -209,21 +209,36 @@ $('collect').addEventListener('click', async () => {
   if (!confirm('DART에서 18개사 보고서와 정답을 다시 수집할까요? (1~2분)')) return;
   const btn = $('collect');
   btn.disabled = true; btn.textContent = '수집 중…';
+  const headers = { 'X-Admin-Token': token };
   try {
-    const res = await fetch('/api/admin/collect', { method: 'POST', headers: { 'X-Admin-Token': token } });
+    // 수집은 1분 이상 걸려 리버스 프록시 제한(60초)을 넘으므로, 시작만 요청하고 상태를 주기적으로 확인한다.
+    const res = await fetch('/api/admin/collect', { method: 'POST', headers });
     if (res.status === 401) {
       try { sessionStorage.removeItem('adminToken'); } catch (e) { /* 무시 */ }
       alert('관리자 토큰이 올바르지 않습니다.');
       return;
     }
+    if (res.status === 409) alert('이미 수집이 진행 중입니다. 끝날 때까지 기다립니다.');
+    else if (!res.ok) throw new Error(`HTTP ${res.status}`);
     try { sessionStorage.setItem('adminToken', token); } catch (e) { /* 무시 */ }
-    const summary = await res.json();
-    const warnings = summary.flatMap(s => s.warnings.map(w => `${s.corpName}: ${w}`));
+
+    const started = Date.now();
+    let job;
+    do {
+      await new Promise(r => setTimeout(r, 3000));
+      btn.textContent = `수집 중… ${Math.round((Date.now() - started) / 1000)}초`;
+      const poll = await fetch('/api/admin/collect', { headers });
+      if (!poll.ok) throw new Error(`HTTP ${poll.status}`);
+      job = await poll.json();
+    } while (job.state === 'RUNNING');
+
+    if (job.state === 'FAILED') throw new Error(job.error);
+    const warnings = job.summaries.flatMap(s => s.warnings.map(w => `${s.corpName}: ${w}`));
     alert(`수집 완료. 경고 ${warnings.length}건${warnings.length ? '\n\n' + warnings.join('\n') : ''}`);
     await loadCompanies();
     if (state.selected) await selectCompany(state.selected);
   } catch (err) {
-    alert('수집 실패: ' + err);
+    alert('수집 실패: ' + err.message);
   } finally {
     btn.disabled = false; btn.textContent = 'DART에서 다시 수집';
   }
