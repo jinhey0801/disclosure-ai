@@ -1,6 +1,6 @@
 # 프로젝트: 피투자사 보고자료 AI 구조화 서비스
 - 목표: 공시 문서를 LLM으로 읽어 메타데이터 기준으로 구조화, 검증, 일괄 처리
-- 스택: Kotlin 2.2 (JVM 17), Spring Boot 3.5, Spring AI(Anthropic), Spring Batch, MySQL, Docker, EC2
+- 스택: Kotlin 1.9.25 (JVM 17), Spring Boot 3.5, Spring AI(Anthropic), Spring Batch, MySQL, Docker, EC2
 - 기간: 2주. RAG, Security, Kafka는 범위 밖
 - 규칙: 기능 하나 끝날 때마다 내가 이해할 수 있게 설계 이유를 짧게 설명할 것
 
@@ -9,6 +9,8 @@
 - 엔티티: 바뀌지 않는 값은 생성자 `val`, 바뀌는 값은 본문 `var … protected set` + 변경 메서드. `kotlin-jpa`(no-arg)·`allOpen`(Entity) 플러그인 전제
 - 주석에 `/api/admin/**` 처럼 `/*` 를 쓰면 Kotlin 중첩 주석이 열린다. 경로는 말로 쓸 것
 - JVM 17 이라 `BigDecimal.TWO` 같은 19+ API 금지
+- Kotlin 은 1.9.25 고정 (Spring Boot 3.5 관리 버전). 로컬 IntelliJ 2023.1 의 Kotlin 플러그인(1.9)이 2.x 라이브러리를 못 읽어서 내림.
+  2.x 전용 문법 금지, IDE 에서 해석이 안 되는 `jackson-module-kotlin` 확장 함수(readValue 등) 대신 Jackson Java API 사용
 
 ## 실행
 - 전체 기동: `docker compose up --build` → http://localhost:8080/actuator/health

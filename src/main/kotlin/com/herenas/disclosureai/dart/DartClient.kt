@@ -3,7 +3,6 @@ package com.herenas.disclosureai.dart
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
-import com.fasterxml.jackson.module.kotlin.readValue
 import com.herenas.disclosureai.domain.common.FsDiv
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.http.client.SimpleClientHttpRequestFactory
@@ -146,7 +145,7 @@ class DartClient(
 			.retrieve()
 			.body<String>()
 			?: throw IllegalStateException("DART 응답이 비어 있음: $path")
-		return objectMapper.readValue(body)
+		return objectMapper.readValue(body, T::class.java)
 	}
 
 	private fun check(status: String?, message: String?) {

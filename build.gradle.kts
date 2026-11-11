@@ -1,9 +1,9 @@
 plugins {
-	kotlin("jvm") version "2.2.21"
+	kotlin("jvm") version "1.9.25"
 	// @Component·@Transactional 등 스프링 빈 클래스를 open 으로 (프록시 생성용)
-	kotlin("plugin.spring") version "2.2.21"
+	kotlin("plugin.spring") version "1.9.25"
 	// JPA 엔티티에 Hibernate 가 쓰는 인자 없는 생성자 생성
-	kotlin("plugin.jpa") version "2.2.21"
+	kotlin("plugin.jpa") version "1.9.25"
 	id("org.springframework.boot") version "3.5.16"
 	id("io.spring.dependency-management") version "1.1.7"
 }
@@ -16,9 +16,6 @@ java {
 		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
-
-// Spring Boot 3.5 가 관리하는 Kotlin 은 1.9 라서 플러그인 버전과 맞춘다
-extra["kotlin.version"] = "2.2.21"
 
 repositories {
 	mavenCentral()
@@ -41,7 +38,8 @@ dependencies {
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
-kotlin {
+// Kotlin 1.9.25 = Spring Boot 3.5 가 관리하는 버전. IntelliJ 2023.1(Kotlin 플러그인 1.9)에서 2.x 라이브러리를 못 읽어 맞춤
+tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 	compilerOptions {
 		// 스프링의 @Nullable 표시를 Kotlin 타입 시스템에 반영
 		freeCompilerArgs.addAll("-Xjsr305=strict")
